@@ -30,7 +30,7 @@ struct Socket{
 
         void __fastcall Socket::bind(InetAddress *a2)
         {
-            errif( bind(this->fd, (const struct sockaddr *)a2, *((_DWORD *)a2 + 4)) == -1, "socket bind error");
+            errif( bind(this->fd, a2->client_addr, a2->client_addr_size) == -1, "socket bind error");
         }
 
         void __fastcall Socket::listen()
@@ -57,3 +57,42 @@ struct Socket{
           return v3;
         }
 };
+
+class Epoll{
+    private:
+        int epfd;
+        struct epoll_event *events;
+    public:
+        void addFd(int fd, int op)
+        {
+            struct epoll_event event;
+            bezro(event, sizeof(event));
+            event.data.fd = fd;
+            event.events = op;
+            int v3 = epoll_ctl(this->epfd, 1, op, &event);
+            errif(v3 == -1, "epoll add event error");
+        }
+
+        // 不会还原回头问一下
+        // Epoll *__fastcall Epoll::poll(Epoll *this, __int64 a2, int a3)
+        // {
+        // int i; // [rsp+20h] [rbp-20h]
+        // int v6; // [rsp+24h] [rbp-1Ch]
+
+        // std::vector<epoll_event>::vector((__int64)this);
+        // v6 = epoll_wait(*(_DWORD *)a2, *(struct epoll_event **)(a2 + 8), 1000, a3);
+        // errif(v6 == -1, "epoll wait error");
+        // for ( i = 0; i < v6; ++i )
+        //     std::vector<epoll_event>::push_back((__int64)this, *(_QWORD *)(a2 + 8) + 12LL * i);
+        // return this;
+        // }
+        std::vector<epoll_event> poll(int timeout){
+            std::vector<epoll_event> activeEvents;
+            int nfds = epoll_wait(epfd, events, MAX_EVENTS, timeout);
+            errif(nfds == -1, "epoll wait error");
+            for(int i = 0; i < nfds; ++i){
+                activeEvents.push_back(events[i]);
+            }
+            return activeEvents;
+        }
+}
